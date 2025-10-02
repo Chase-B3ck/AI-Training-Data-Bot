@@ -1,49 +1,56 @@
-import json
 import asyncio
 from pathlib import Path
 from typing import List
+import fitz  # PyMuPDF
+
 from ..models import Document
 from .base_loader import BaseLoader
 from ..core.exceptions import DocumentLoadError
 
-class DocumentLoader(BaseLoader):
-   
+
+class PDFLoader(BaseLoader):
+
     async def load(self, source) -> List[Document]:
         path = Path(source)
         if path.is_dir():
             return await self._load_directory(path)
-        else:
+        elif path.suffix.lower() == ".pdf":
             return [await self._load_file(path)]
+        else:
+            raise DocumentLoadError(f"Unsupported source type: {source}")
 
     async def _load_directory(self, directory: Path) -> List[Document]:
-        supported = ['*.txt', '*.md', '*.json', '*.csv', '*.html']
         docs = []
-        for pattern in supported:
-            for p in directory.rglob(pattern):
-                try:
-                    docs.append(await self._load_file(p))
-                except DocumentLoadError as e:
-                    # Log or skip failed files
-                    continue
+        for pdf_file in directory.rglob("*.pdf"):
+            try:
+                doc = await self._load_file(pdf_file)
+                docs.append(doc)
+            except DocumentLoadError:
+                continue  # Skip files that fail to load
         return docs
 
     async def _load_file(self, path: Path) -> Document:
-        ext = path.suffix.lower().lstrip('.')
         try:
-            if ext in ('txt', 'md', 'html', 'csv'):
-                content = await asyncio.to_thread(path.read_text, encoding='utf-8', errors='ignore')
-            elif ext == 'json':
-                raw = await asyncio.to_thread(path.read_text, encoding='utf-8')
-                content = json.dumps(json.loads(raw), ensure_ascii=False)
-            else:
-                raise DocumentLoadError(f"Unsupported file type: {ext}")
-        except Exception as e:
-            raise DocumentLoadError(f"Failed to load file: {path}") from e
+            def extract_text():
+                doc = fitz.open(path)
+                text_parts = []
+                for page_num in range(doc.page_count):
+                    page = doc.load_page(page_num)
+                    text = page.get_text()
+                    if text.strip():
+                        text_parts.append(f"Page {page_num + 1}:\n{text}")
+                doc.close()
+                return "\n\n".join(text_parts)
 
-        return Document(
-            title=path.stem,
-            content=content,
-            source=str(path),
-            doc_type=ext,
-            word_count=len(content.split())
-        )
+            content = await asyncio.to_thread(extract_text)
+
+            return Document(
+                title=path.stem,
+                content=content,
+                source=str(path),
+                doc_type="pdf",
+                word_count=len(content.split())
+            )
+
+        except Exception as e:
+            raise DocumentLoadError(f"Failed to load PDF: {path}") from e
