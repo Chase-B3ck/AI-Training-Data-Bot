@@ -1,31 +1,46 @@
 from pathlib import Path
 from typing import List, Union
 from .document_loader import DocumentLoader
-from .pdf_loader import PDFLoader  # Assuming this is implemented
+from .pdf_loader import PDFLoader
+from .web_loader import WebLoader
 from ..models import Document, DocumentType
 
 class UnifiedLoader:
     def __init__(self):
         self.document_loader = DocumentLoader()
         self.pdf_loader = PDFLoader()
-        self.supported_formats = [DocumentType.TXT, DocumentType.DOCX, DocumentType.PDF]
+        self.web_loader = WebLoader()
+        self.supported_formats = list(DocumentType)
 
     async def load(self, source: Union[str, Path]) -> List[Document]:
+        loader = self._detect_loader(source)
+        if loader is None:
+            raise ValueError(f"Unsupported or invalid source: {source}")
+
+        document = await loader.load_single(source)
+        return [document]
+
+    def _detect_loader(self, source: Union[str, Path]):
+        
+        if isinstance(source, str) and source.startswith(('http://', 'https://')):
+            return self.web_loader
+
+        
         path = Path(source)
         if not path.exists():
-            raise FileNotFoundError(f"Source not found: {source}")
+            return None
 
-        doc_type = self._detect_type(path)
-        if doc_type == DocumentType.PDF:
-            return [await self.pdf_loader.load_single(path)]
-        elif doc_type in [DocumentType.TXT, DocumentType.DOCX]:
-            return [await self.document_loader.load_single(path)]
-        else:
-            raise ValueError(f"Unsupported document type: {doc_type}")
-
-    def _detect_type(self, path: Path) -> DocumentType:
         suffix = path.suffix.lower().lstrip('.')
         try:
-            return DocumentType(suffix)
+            doc_type = DocumentType(suffix)
         except ValueError:
-            raise ValueError(f"Unknown file extension: {suffix}")
+            return None
+
+        if doc_type == DocumentType.PDF:
+            return self.pdf_loader
+        elif doc_type in [
+            DocumentType.TXT, DocumentType.DOCX, DocumentType.MD,
+            DocumentType.HTML, DocumentType.JSON, DocumentType.CSV
+        ]:
+            return self.document_loader
+        else:
