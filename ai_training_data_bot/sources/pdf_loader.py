@@ -7,11 +7,7 @@ from .base_loader import BaseLoader
 from ..core.exceptions import DocumentLoadError
 
 class DocumentLoader(BaseLoader):
-    """
-    Loads text-based documents from files or directories.
-    Supports TXT, MD, HTML, JSON, and CSV formats.
-    """
-
+   
     async def load(self, source) -> List[Document]:
         path = Path(source)
         if path.is_dir():
