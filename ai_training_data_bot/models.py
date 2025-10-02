@@ -17,6 +17,14 @@ class ExportFormat(str, Enum):
     JSONL = "jsonl"
     CSV = "csv"
 
+
+class QualityMetric(str, Enum):
+    TOXICITY = "toxicity"
+    BIAS = "bias"
+    DIVERSITY = "diversity"
+    COHERENCE = "coherence"
+    RELEVANCE = "relevance"
+
 @dataclass
 class BaseEntity:
     id: UUID = field(default_factory=uuid4)
