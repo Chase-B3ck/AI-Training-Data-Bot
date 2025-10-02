@@ -30,7 +30,7 @@ async def run_example():
     exporter = DatasetExporter()
     await exporter.export(dataset, out / 'training_data.jsonl', format=ExportFormat.JSONL)
 
-    print(f"Export complete: {out / 'training_data.jsonl'}")
+    print(f" Export complete: {out / 'training_data.jsonl'}")
 
 if __name__ == "__main__":
     asyncio.run(run_example())
