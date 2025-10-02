@@ -1,0 +1,9 @@
+aiofiles
+httpx
+beautifulsoup4
+PyMuPDF
+python-docx
+fastapi
+uvicorn
+pydantic
+loguru
